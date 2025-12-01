@@ -1,0 +1,103 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT}:5678"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+      - 1.1.1.1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows access to services on host machine (Windows/Mac)
+    environment:
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${TZ}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=${N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS}
+      - N8N_RUNNERS_ENABLED=${N8N_RUNNERS_ENABLED}
+      - N8N_LOG_LEVEL=${N8N_LOG_LEVEL}
+      - N8N_LOG_OUTPUT=${N8N_LOG_OUTPUT}
+      - NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=${POSTGRES_PORT}
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_POSTGRES_DATABASE}
+      - DB_POSTGRESDB_USER=${N8N_DB_POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_POSTGRES_PASSWORD}
+      - DB_POSTGRESDB_SCHEMA=${N8N_DB_POSTGRES_SCHEMA}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      # - N8N_PATH=${N8N_PATH}
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+      - EXECUTIONS_TIMEOUT=${N8N_EXECUTIONS_TIMEOUT}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+
+  flowise:
+    image: flowiseai/flowise:latest
+    container_name: flowise
+    restart: unless-stopped
+    ports:
+      - "${FLOWISE_PORT}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allows access to services on host machine (Windows/Mac)
+    environment:
+      - DATABASE_PATH=postgresql://${FLOWISE_DB_USER}:${FLOWISE_DB_PASSWORD}@postgres:${POSTGRES_PORT}/${FLOWISE_DB_NAME}
+      - FLOWISE_PORT=3000
+      - FLOWISE_SECRETKEY=${FLOWISE_SECRETKEY}
+      - DEBUG=${FLOWISE_DEBUG}
+      - TZ=${TZ}
+    volumes:
+      - flowise_data:/root/flowise
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - default
+
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: postgres
+    hostname: postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - default
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Переменные для n8n и flowise
+      - N8N_DB_POSTGRES_DATABASE=${N8N_DB_POSTGRES_DATABASE}
+      - N8N_DB_POSTGRES_USER=${N8N_DB_POSTGRES_USER}
+      - N8N_DB_POSTGRES_PASSWORD=${N8N_DB_POSTGRES_PASSWORD}
+      - FLOWISE_DB_USER=${FLOWISE_DB_USER}
+      - FLOWISE_DB_PASSWORD=${FLOWISE_DB_PASSWORD}
+      - FLOWISE_DB_NAME=${FLOWISE_DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ./postgres/dumps:/dumps
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  n8n_data:
+    driver: local
+  flowise_data:
+    driver: local
+  postgres_data:
+    driver: local
+
