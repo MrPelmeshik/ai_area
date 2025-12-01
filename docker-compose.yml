@@ -96,19 +96,32 @@ services:
   localtunnel:
     image: node:18-alpine
     container_name: localtunnel
-    restart: unless-stopped
+    restart: always
     # Используем network_mode для прямого доступа к порту n8n
+    # DNS настройки наследуются от контейнера n8n
     network_mode: "service:n8n"
     environment:
       - LOCALTUNNEL_SUBDOMAIN=${LOCALTUNNEL_SUBDOMAIN}
     command: >
       sh -c "
       npm install -g localtunnel &&
+      echo 'Waiting for n8n to be ready...' &&
+      sleep 10 &&
       echo 'Starting localtunnel for n8n on port 5678 with subdomain: ${LOCALTUNNEL_SUBDOMAIN}...' &&
-      lt --port 5678 --host https://loca.lt --subdomain ${LOCALTUNNEL_SUBDOMAIN} --print-requests
+      while true; do
+        lt --port 5678 --host https://localtunnel.me --subdomain ${LOCALTUNNEL_SUBDOMAIN} --print-requests || 
+        (echo 'Connection failed, retrying in 10 seconds...' && sleep 10)
+      done
       "
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep 'lt --port' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - n8n
+      n8n:
+        condition: service_started
 
 volumes:
   n8n_data:
