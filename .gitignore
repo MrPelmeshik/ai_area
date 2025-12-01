@@ -26,4 +26,9 @@ logs/
 tmp/
 temp/
 
+# Postgres dumps (except submodules)
 /postgres/dumps/*
+!/postgres/dumps/postgres-sample-dbs
+/postgres/dumps/postgres-sample-dbs/*
+!/postgres/dumps/postgres-sample-dbs/.git
+!/postgres/dumps/postgres-sample-dbs/.git*
