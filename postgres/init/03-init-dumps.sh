@@ -87,40 +87,56 @@ EOSQL
     fi
 }
 
-# Загрузка demo дампа
-if [ -f "demo-20250901-1y.sql.gz" ]; then
-    echo "Загрузка demo-20250901-1y.sql.gz..."
-    gunzip -c demo-20250901-1y.sql.gz | psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
-    # Предоставляем права на схему public в основной базе данных
-    grant_permissions_to_users "$POSTGRES_DB" "public"
-fi
+# Функция для скачивания файла, если он отсутствует
+download_file_if_not_exists() {
+    local file_name=$1
+    local url=$2
+    
+    if [ ! -f "$file_name" ]; then
+        echo "Файл $file_name не найден. Попытка скачать с $url..."
+        
+        # Пытаемся использовать wget, если доступен
+        if command -v wget >/dev/null 2>&1; then
+            if wget -q --show-progress -O "$file_name" "$url"; then
+                echo "Файл $file_name успешно скачан"
+                return 0
+            else
+                echo "Ошибка: не удалось скачать $file_name с помощью wget"
+                return 1
+            fi
+        # Иначе используем curl
+        elif command -v curl >/dev/null 2>&1; then
+            if curl -L -o "$file_name" "$url"; then
+                echo "Файл $file_name успешно скачан"
+                return 0
+            else
+                echo "Ошибка: не удалось скачать $file_name с помощью curl"
+                return 1
+            fi
+        else
+            echo "Ошибка: wget и curl не найдены. Невозможно скачать $file_name"
+            return 1
+        fi
+    else
+        echo "Файл $file_name уже существует"
+        return 0
+    fi
+}
 
-# Обработка dvdrental.zip
-# if [ -f "dvdrental.zip" ]; then
-#     echo "Обработка dvdrental.zip..."
-#     TEMP_DIR=$(mktemp -d)
-#     # Пытаемся использовать unzip, если доступен, иначе используем Python
-#     if command -v unzip >/dev/null 2>&1; then
-#         unzip -q dvdrental.zip -d "$TEMP_DIR"
-#     elif command -v python3 >/dev/null 2>&1; then
-#         python3 -c "import zipfile; zipfile.ZipFile('dvdrental.zip').extractall('$TEMP_DIR')"
-#     else
-#         echo "Предупреждение: unzip и python3 не найдены, пропускаем dvdrental.zip"
-#         rm -rf "$TEMP_DIR"
-#     fi
-#     if [ -d "$TEMP_DIR" ] && [ "$(ls -A $TEMP_DIR 2>/dev/null)" ]; then
-#         # Ищем SQL файл в распакованном архиве
-#         SQL_FILE=$(find "$TEMP_DIR" -name "*.sql" -type f | head -n 1)
-#         if [ -n "$SQL_FILE" ]; then
-#             create_database_if_not_exists "dvdrental"
-#             echo "Загрузка dvdrental из $SQL_FILE..."
-#             psql -U "$POSTGRES_USER" -d dvdrental -f "$SQL_FILE"
-#         else
-#             echo "Предупреждение: SQL файл не найден в dvdrental.zip"
-#         fi
-#         rm -rf "$TEMP_DIR"
-#     fi
-# fi
+# Загрузка demo дампа
+DEMO_FILE="demo-20250901-1y.sql.gz"
+DEMO_URL="https://edu.postgrespro.ru/demo-20250901-1y.sql.gz"
+
+if download_file_if_not_exists "$DEMO_FILE" "$DEMO_URL"; then
+    if [ -f "$DEMO_FILE" ]; then
+        echo "Загрузка $DEMO_FILE в базу данных..."
+        gunzip -c "$DEMO_FILE" | psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+        # Предоставляем права на схему public в основной базе данных
+        grant_permissions_to_users "$POSTGRES_DB" "public"
+    fi
+else
+    echo "Предупреждение: пропускаем загрузку demo дампа из-за ошибки скачивания"
+fi
 
 # Обработка файлов из postgres-sample-dbs
 SAMPLE_DBS_DIR="postgres-sample-dbs"
