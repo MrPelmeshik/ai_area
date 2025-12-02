@@ -122,26 +122,16 @@ services:
     command: mongod --bind_ip_all --wiredTigerCacheSizeGB 1
 
   localtunnel-n8n:
-    image: node:18-alpine
+    build:
+      context: ./localtunnel
+      dockerfile: Dockerfile
     container_name: localtunnel-n8n
     restart: always
-    # Используем network_mode для прямого доступа к порту n8n
-    # DNS настройки наследуются от контейнера n8n
     network_mode: "service:n8n"
     environment:
-      - LOCALTUNNEL_SUBDOMAIN=${LOCALTUNNEL_SUBDOMAIN_N8N}
-      - N8N_PORT=${N8N_PORT}
-    command: >
-      sh -c "
-      npm install -g localtunnel &&
-      echo 'Waiting for n8n to be ready...' &&
-      sleep 10 &&
-      echo 'Starting localtunnel for n8n on port ${N8N_PORT} with subdomain: ${LOCALTUNNEL_SUBDOMAIN_N8N}...' &&
-      while true; do
-        lt --port ${N8N_PORT} --host https://localtunnel.me --subdomain ${LOCALTUNNEL_SUBDOMAIN_N8N} --print-requests || 
-        (echo 'Connection failed, retrying in 10 seconds...' && sleep 10)
-      done
-      "
+      - PORT=${N8N_PORT}
+      - SUBDOMAIN=${LOCALTUNNEL_SUBDOMAIN_N8N}
+      - HOST=${LOCALTUNNEL_HOST}
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -v grep | grep 'lt --port' > /dev/null || exit 1"]
       interval: 10s
