@@ -130,14 +130,15 @@ services:
     network_mode: "service:n8n"
     environment:
       - LOCALTUNNEL_SUBDOMAIN=${LOCALTUNNEL_SUBDOMAIN_N8N}
+      - N8N_PORT=${N8N_PORT}
     command: >
       sh -c "
       npm install -g localtunnel &&
       echo 'Waiting for n8n to be ready...' &&
       sleep 10 &&
-      echo 'Starting localtunnel for n8n on port 5678 with subdomain: ${LOCALTUNNEL_SUBDOMAIN_N8N}...' &&
+      echo 'Starting localtunnel for n8n on port ${N8N_PORT} with subdomain: ${LOCALTUNNEL_SUBDOMAIN_N8N}...' &&
       while true; do
-        lt --port 5678 --host https://localtunnel.me --subdomain ${LOCALTUNNEL_SUBDOMAIN_N8N} --print-requests || 
+        lt --port ${N8N_PORT} --host https://localtunnel.me --subdomain ${LOCALTUNNEL_SUBDOMAIN_N8N} --print-requests || 
         (echo 'Connection failed, retrying in 10 seconds...' && sleep 10)
       done
       "
