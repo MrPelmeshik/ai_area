@@ -93,6 +93,34 @@ services:
       timeout: 5s
       retries: 5
 
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    hostname: mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGODB_PORT}:27017"
+    networks:
+      - default
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGODB_ROOT_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGODB_DATABASE}
+      # Переменные для n8n
+      - N8N_MONGODB_DATABASE=${N8N_MONGODB_DATABASE}
+      - N8N_MONGODB_USER=${N8N_MONGODB_USER}
+      - N8N_MONGODB_PASSWORD=${N8N_MONGODB_PASSWORD}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ./mongodb/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: mongod --bind_ip_all --wiredTigerCacheSizeGB 1
+
   localtunnel:
     image: node:18-alpine
     container_name: localtunnel
@@ -115,10 +143,10 @@ services:
       "
     healthcheck:
       test: ["CMD-SHELL", "ps aux | grep -v grep | grep 'lt --port' > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
     depends_on:
       n8n:
         condition: service_started
@@ -129,5 +157,9 @@ volumes:
   flowise_data:
     driver: local
   postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  mongodb_config:
     driver: local
 
